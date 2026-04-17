@@ -1,0 +1,1167 @@
+const ComponentFunction = function() {
+  // @section:imports @depends:[]
+  const React = require('react');
+  const { useState, useEffect, useContext, useMemo, useCallback } = React;
+  const { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Platform, StatusBar, ActivityIndicator, FlatList, Dimensions, Image } = require('react-native');
+  const { MaterialIcons } = require('@expo/vector-icons');
+  const { createBottomTabNavigator } = require('@react-navigation/bottom-tabs');
+  const { createStackNavigator } = require('@react-navigation/stack');
+  const { useSafeAreaInsets } = require('react-native-safe-area-context');
+  const { useQuery, useMutation } = require('platform-hooks');
+  // @end:imports
+
+  // @section:constants @depends:[]
+  var TAB_MENU_HEIGHT = Platform.OS === 'web' ? 56 : 49;
+  var SCROLL_EXTRA_PADDING = 16;
+  var WEB_TAB_MENU_PADDING = 90;
+  var FAB_SPACING = 16;
+
+  const storageStrategy = 'all-local';
+  const primaryColor = '#8B1538';
+  const accentColor = '#2D5016';
+  const backgroundColor = '#FDF7F0';
+  const cardColor = '#FFFFFF';
+  const textPrimary = '#1F1F1F';
+  const textSecondary = '#666666';
+  const designStyle = 'traditional';
+
+  const Tab = createBottomTabNavigator();
+  const Stack = createStackNavigator();
+
+  // Static product data
+  const CATEGORIES = [
+    { id: '1', name: 'الأثواب المطرزة', nameEn: 'Embroidered Thobs', icon: 'checkroom' },
+    { id: '2', name: 'الأثاث التراثي', nameEn: 'Heritage Furniture', icon: 'chair' },
+    { id: '3', name: 'المأكولات الفلسطينية', nameEn: 'Palestinian Food', icon: 'restaurant' },
+    { id: '4', name: 'الزيوت والمونة', nameEn: 'Olive Oil & Pantry', icon: 'local-grocery-store' }
+  ];
+
+  const PRODUCTS = [
+    { 
+      id: '1', categoryId: '1', name: 'ثوب التطريز الفلسطيني', nameEn: 'Palestinian Embroidered Thob',
+      seller: 'أم محمد', village: 'رام الله', price: 250, featured: true,
+      description: 'ثوب تقليدي مطرز بالخيوط الحريرية بأشكال تراثية أصيلة'
+    },
+    { 
+      id: '2', categoryId: '2', name: 'صندوق خشبي منحوت', nameEn: 'Carved Wooden Chest',
+      seller: 'أبو خليل', village: 'بيت لحم', price: 180, featured: true,
+      description: 'صندوق من الخشب المحلي منحوت بأشكال تراثية فلسطينية'
+    },
+    { 
+      id: '3', categoryId: '3', name: 'زعتر فلسطيني', nameEn: 'Palestinian Zaatar',
+      seller: 'منتجات القرية', village: 'جنين', price: 15, featured: false,
+      description: 'زعتر طبيعي من أوراق الزعتر البري الفلسطيني'
+    },
+    { 
+      id: '4', categoryId: '4', name: 'زيت زيتون بكر', nameEn: 'Extra Virgin Olive Oil',
+      seller: 'عائلة أبو زيد', village: 'طولكرم', price: 35, featured: true,
+      description: 'زيت زيتون عضوي من أشجار عمرها أكثر من 100 عام'
+    },
+    { 
+      id: '5', categoryId: '1', name: 'ثوب الحرير المطرز', nameEn: 'Embroidered Silk Dress',
+      seller: 'فاطمة الحرفية', village: 'الخليل', price: 320, featured: false,
+      description: 'فستان من الحرير الطبيعي مطرز بتطريز تقليدي يدوي'
+    },
+    { 
+      id: '6', categoryId: '3', name: 'معمول بالتمر', nameEn: 'Date Maamoul',
+      seller: 'أم أحمد', village: 'أريحا', price: 25, featured: false,
+      description: 'حلويات تراثية محشوة بالتمر الطبيعي'
+    }
+  ];
+
+  const PRODUCTS_BY_ID = {};
+  PRODUCTS.forEach(function(product) {
+    PRODUCTS_BY_ID[product.id] = product;
+  });
+  // @end:constants
+
+  // @section:theme @depends:[constants]
+  const ThemeContext = React.createContext({
+    theme: { colors: { primary: primaryColor, accent: accentColor, background: backgroundColor, card: cardColor, textPrimary: textPrimary, textSecondary: textSecondary, border: '#E5E7EB', success: '#10B981', error: '#EF4444', warning: '#F59E0B' } },
+    darkMode: false,
+    toggleDarkMode: function() {},
+    designStyle: designStyle,
+  });
+
+  const ThemeProvider = function(props) {
+    const [darkMode, setDarkMode] = useState(false);
+    const lightTheme = useMemo(function() {
+      return {
+        colors: {
+          primary: primaryColor,
+          accent: accentColor,
+          background: backgroundColor,
+          card: cardColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          border: '#E5E7EB',
+          success: '#10B981',
+          error: '#EF4444',
+          warning: '#F59E0B'
+        }
+      };
+    }, []);
+    
+    const darkTheme = useMemo(function() {
+      return {
+        colors: {
+          primary: primaryColor,
+          accent: accentColor,
+          background: '#1F2937',
+          card: '#374151',
+          textPrimary: '#F9FAFB',
+          textSecondary: '#D1D5DB',
+          border: '#4B5563',
+          success: '#10B981',
+          error: '#EF4444',
+          warning: '#F59E0B'
+        }
+      };
+    }, []);
+    
+    const theme = darkMode ? darkTheme : lightTheme;
+    const toggleDarkMode = useCallback(function() {
+      setDarkMode(function(prev) { return !prev; });
+    }, []);
+    
+    const value = useMemo(function() {
+      return { theme: theme, darkMode: darkMode, toggleDarkMode: toggleDarkMode, designStyle: designStyle };
+    }, [theme, darkMode, toggleDarkMode]);
+    
+    return React.createElement(ThemeContext.Provider, { testID: 'Provider-1', value: value }, props.children);
+  };
+
+  const useTheme = function() { return useContext(ThemeContext); };
+  // @end:theme
+
+  // @section:HomeScreen @depends:[theme,constants,styles]
+  const HomeScreen = function(props) {
+    var navigation = props.navigation;
+    const themeContext = useTheme();
+    const theme = themeContext.theme;
+    const insets = useSafeAreaInsets();
+    var scrollBottomPadding = Platform.OS === 'web' ? WEB_TAB_MENU_PADDING : (TAB_MENU_HEIGHT + insets.bottom + SCROLL_EXTRA_PADDING);
+    var scrollTopPadding = insets.top;
+
+    const [searchText, setSearchText] = useState('');
+    const featuredProducts = PRODUCTS.filter(function(p) { return p.featured; });
+
+    const handleCategoryPress = function(category) {
+      navigation.navigate('Categories', { categoryId: category.id, categoryName: category.name });
+    };
+
+    const handleProductPress = function(product) {
+      navigation.push('ProductDetail', { productId: product.id });
+    };
+
+    const handleSearchPress = function() {
+      if (searchText.trim()) {
+        navigation.navigate('Search', { query: searchText });
+      }
+    };
+
+    return React.createElement(ScrollView, { testID: 'ScrollView-1', style: { flex: 1, backgroundColor: theme.colors.background },
+      contentContainerStyle: { paddingTop: scrollTopPadding, paddingBottom: scrollBottomPadding }
+    },
+      // Hero Section
+      React.createElement(View, { testID: 'View-1', style: styles.heroSection, componentId: 'hero-section' },
+        React.createElement(Image, { testID: 'Image-1', source: { uri: 'IMAGE:palestinian-olive-trees-traditional-landscape' },
+          style: styles.heroImage,
+          componentId: 'hero-background'
+        }),
+        React.createElement(View, { testID: 'View-2', style: styles.heroOverlay },
+          React.createElement(Text, { testID: 'Text-1', style: styles.heroTitle }, 'جذور'),
+          React.createElement(Text, { testID: 'Text-2', style: styles.heroSubtitle }, 'من أرضنا، إلى العالم'),
+          React.createElement(View, { testID: 'View-3', style: styles.tatreezBorder })
+        )
+      ),
+
+      // Search Bar
+      React.createElement(View, { testID: 'View-4', style: styles.searchSection, componentId: 'search-section' },
+        React.createElement(View, { testID: 'View-5', style: [styles.searchBar, { backgroundColor: theme.colors.card, borderColor: theme.colors.primary }] },
+          React.createElement(TextInput, { testID: 'TextInput-1', style: [styles.searchInput, { color: theme.colors.textPrimary }],
+            placeholder: 'ابحث عن المنتجات...',
+            value: searchText,
+            onChangeText: setSearchText,
+            componentId: 'search-input'
+          }),
+          React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-1', style: [styles.searchButton, { backgroundColor: theme.colors.primary }],
+            onPress: handleSearchPress,
+            componentId: 'search-button'
+          },
+            React.createElement(MaterialIcons, { testID: 'MaterialIcons-1', name: 'search', size: 20, color: '#FFFFFF' })
+          )
+        )
+      ),
+
+      // Categories
+      React.createElement(View, { testID: 'View-6', style: styles.categoriesSection, componentId: 'categories-section' },
+        React.createElement(Text, { testID: 'Text-3', style: [styles.sectionTitle, { color: theme.colors.textPrimary }] }, 'الأقسام'),
+        React.createElement(View, { testID: 'View-7', style: styles.categoriesGrid },
+          CATEGORIES.map(function(category) {
+            return React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-2', key: category.id,
+              style: [styles.categoryCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.primary, borderRadius: 20}],
+              onPress: function() { handleCategoryPress(category); },
+              componentId: 'category-card-' + category.id
+            },
+              React.createElement(MaterialIcons, { testID: 'MaterialIcons-2', name: category.icon, 
+                size: 32, 
+                color: theme.colors.primary 
+              }),
+              React.createElement(Text, { testID: 'Text-4', style: [styles.categoryName, { color: theme.colors.textPrimary }] 
+              }, category.name)
+            );
+          })
+        )
+      ),
+
+      // Featured Products
+      React.createElement(View, { testID: 'View-8', style: styles.featuredSection, componentId: 'featured-section' },
+        React.createElement(Text, { testID: 'Text-5', style: [styles.sectionTitle, { color: theme.colors.textPrimary }] }, 'منتجات مميزة'),
+        React.createElement(ScrollView, { testID: 'ScrollView-2', horizontal: true, 
+          showsHorizontalScrollIndicator: false,
+          style: { flexGrow: 'initial' }
+        },
+          featuredProducts.map(function(product) {
+            return React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-3', key: product.id,
+              style: [styles.productCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.accent }],
+              onPress: function() { handleProductPress(product); },
+              componentId: 'featured-product-' + product.id
+            },
+              React.createElement(Image, { testID: 'Image-2', source: { uri: 'IMAGE:palestinian-traditional-embroidered-clothing' },
+                style: styles.productImage,
+                componentId: 'product-image-' + product.id
+              }),
+              React.createElement(View, { testID: 'View-9', style: styles.productInfo },
+                React.createElement(Text, { testID: 'Text-6', style: [styles.productName, { color: theme.colors.textPrimary }] 
+                }, product.name),
+                React.createElement(Text, { testID: 'Text-7', style: [styles.productSeller, { color: theme.colors.textSecondary }] 
+                }, product.seller + ' - ' + product.village),
+                React.createElement(Text, { testID: 'Text-8', style: [styles.productPrice, { color: theme.colors.primary }] 
+                }, '$' + product.price)
+              )
+            );
+          })
+        )
+      )
+    );
+  };
+  // @end:HomeScreen
+
+  // @section:CategoriesScreen @depends:[theme,constants,styles]
+  const CategoriesScreen = function(props) {
+    var navigation = props.navigation;
+    var route = props.route;
+    const themeContext = useTheme();
+    const theme = themeContext.theme;
+    const insets = useSafeAreaInsets();
+    var scrollBottomPadding = Platform.OS === 'web' ? WEB_TAB_MENU_PADDING : (TAB_MENU_HEIGHT + insets.bottom + SCROLL_EXTRA_PADDING);
+    var scrollTopPadding = insets.top;
+
+    var categoryId = route && route.params ? route.params.categoryId : null;
+    var categoryName = route && route.params ? route.params.categoryName : 'المنتجات';
+    
+    const products = categoryId ? 
+      PRODUCTS.filter(function(p) { return p.categoryId === categoryId; }) : 
+      PRODUCTS;
+
+    const handleProductPress = function(product) {
+      navigation.push('ProductDetail', { productId: product.id });
+    };
+
+    return React.createElement(View, { testID: 'View-10', style: { flex: 1, backgroundColor: theme.colors.background },
+      componentId: 'categories-screen'
+    },
+      React.createElement(View, { testID: 'View-11', style: [styles.header, { backgroundColor: theme.colors.primary }] },
+        React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-4', style: styles.backButton,
+          onPress: function() { navigation.goBack(); },
+          componentId: 'back-button'
+        },
+          React.createElement(MaterialIcons, { testID: 'MaterialIcons-3', name: 'arrow-back', size: 24, color: '#FFFFFF' })
+        ),
+        React.createElement(Text, { testID: 'Text-9', style: styles.headerTitle }, categoryName)
+      ),
+      
+      React.createElement(ScrollView, { testID: 'ScrollView-3', style: { flex: 1 },
+        contentContainerStyle: { paddingTop: 20, paddingBottom: scrollBottomPadding }
+      },
+        React.createElement(View, { testID: 'View-12', style: styles.productsGrid },
+          products.map(function(product) {
+            return React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-5', key: product.id,
+              style: [styles.gridProductCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }],
+              onPress: function() { handleProductPress(product); },
+              componentId: 'grid-product-' + product.id
+            },
+              React.createElement(Image, { testID: 'Image-3', source: { uri: 'IMAGE:palestinian-handcrafted-traditional-items' },
+                style: styles.gridProductImage,
+                componentId: 'grid-product-image-' + product.id
+              }),
+              React.createElement(View, { testID: 'View-13', style: styles.gridProductInfo },
+                React.createElement(Text, { testID: 'Text-10', style: [styles.gridProductName, { color: theme.colors.textPrimary }] 
+                }, product.name),
+                React.createElement(Text, { testID: 'Text-11', style: [styles.gridProductSeller, { color: theme.colors.textSecondary }] 
+                }, product.seller),
+                React.createElement(Text, { testID: 'Text-12', style: [styles.gridProductVillage, { color: theme.colors.accent }] 
+                }, product.village),
+                React.createElement(Text, { testID: 'Text-13', style: [styles.gridProductPrice, { color: theme.colors.primary }] 
+                }, '$' + product.price)
+              )
+            );
+          })
+        )
+      )
+    );
+  };
+  // @end:CategoriesScreen
+
+  // @section:SearchScreen @depends:[theme,constants,styles]
+  const SearchScreen = function(props) {
+    var navigation = props.navigation;
+    var route = props.route;
+    const themeContext = useTheme();
+    const theme = themeContext.theme;
+    const insets = useSafeAreaInsets();
+    var scrollBottomPadding = Platform.OS === 'web' ? WEB_TAB_MENU_PADDING : (TAB_MENU_HEIGHT + insets.bottom + SCROLL_EXTRA_PADDING);
+
+    var initialQuery = route && route.params ? route.params.query : '';
+    const [searchText, setSearchText] = useState(initialQuery);
+    const [filterVillage, setFilterVillage] = useState('');
+    const [filterSeller, setFilterSeller] = useState('');
+
+    var filteredProducts = PRODUCTS.filter(function(product) {
+      var matchesSearch = !searchText || 
+        product.name.toLowerCase().includes(searchText.toLowerCase()) ||
+        product.nameEn.toLowerCase().includes(searchText.toLowerCase());
+      var matchesVillage = !filterVillage || product.village.includes(filterVillage);
+      var matchesSeller = !filterSeller || product.seller.includes(filterSeller);
+      return matchesSearch && matchesVillage && matchesSeller;
+    });
+
+    const handleProductPress = function(product) {
+      navigation.push('ProductDetail', { productId: product.id });
+    };
+
+    return React.createElement(View, { testID: 'View-14', style: { flex: 1, backgroundColor: theme.colors.background },
+      componentId: 'search-screen'
+    },
+      React.createElement(View, { testID: 'View-15', style: [styles.header, { backgroundColor: theme.colors.primary }] },
+        React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-6', style: styles.backButton,
+          onPress: function() { navigation.goBack(); },
+          componentId: 'search-back-button'
+        },
+          React.createElement(MaterialIcons, { testID: 'MaterialIcons-4', name: 'arrow-back', size: 24, color: '#FFFFFF' })
+        ),
+        React.createElement(Text, { testID: 'Text-14', style: styles.headerTitle }, 'البحث')
+      ),
+
+      React.createElement(View, { testID: 'View-16', style: styles.searchFilters },
+        React.createElement(TextInput, { testID: 'TextInput-2', style: [styles.filterInput, { backgroundColor: theme.colors.card, color: theme.colors.textPrimary }],
+          placeholder: 'ابحث عن المنتجات...',
+          value: searchText,
+          onChangeText: setSearchText,
+          componentId: 'search-filter-input'
+        }),
+        React.createElement(TextInput, { testID: 'TextInput-3', style: [styles.filterInput, { backgroundColor: theme.colors.card, color: theme.colors.textPrimary }],
+          placeholder: 'فلتر حسب القرية...',
+          value: filterVillage,
+          onChangeText: setFilterVillage,
+          componentId: 'village-filter-input'
+        }),
+        React.createElement(TextInput, { testID: 'TextInput-4', style: [styles.filterInput, { backgroundColor: theme.colors.card, color: theme.colors.textPrimary }],
+          placeholder: 'فلتر حسب البائع...',
+          value: filterSeller,
+          onChangeText: setFilterSeller,
+          componentId: 'seller-filter-input'
+        })
+      ),
+      
+      React.createElement(ScrollView, { testID: 'ScrollView-4', style: { flex: 1 },
+        contentContainerStyle: { paddingTop: 10, paddingBottom: scrollBottomPadding }
+      },
+        React.createElement(Text, { testID: 'Text-15', style: [styles.resultsCount, { color: theme.colors.textSecondary }] 
+        }, filteredProducts.length + ' نتيجة'),
+        
+        React.createElement(View, { testID: 'View-17', style: styles.productsGrid },
+          filteredProducts.map(function(product) {
+            return React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-7', key: product.id,
+              style: [styles.gridProductCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }],
+              onPress: function() { handleProductPress(product); },
+              componentId: 'search-result-' + product.id
+            },
+              React.createElement(Image, { testID: 'Image-4', source: { uri: 'IMAGE:palestinian-heritage-crafts-marketplace' },
+                style: styles.gridProductImage,
+                componentId: 'search-result-image-' + product.id
+              }),
+              React.createElement(View, { testID: 'View-18', style: styles.gridProductInfo },
+                React.createElement(Text, { testID: 'Text-16', style: [styles.gridProductName, { color: theme.colors.textPrimary }] 
+                }, product.name),
+                React.createElement(Text, { testID: 'Text-17', style: [styles.gridProductSeller, { color: theme.colors.textSecondary }] 
+                }, product.seller),
+                React.createElement(Text, { testID: 'Text-18', style: [styles.gridProductVillage, { color: theme.colors.accent }] 
+                }, product.village),
+                React.createElement(Text, { testID: 'Text-19', style: [styles.gridProductPrice, { color: theme.colors.primary }] 
+                }, '$' + product.price)
+              )
+            );
+          })
+        )
+      )
+    );
+  };
+  // @end:SearchScreen
+
+  // @section:ProductDetailScreen @depends:[theme,constants,styles]
+  const ProductDetailScreen = function(props) {
+    var navigation = props.navigation;
+    var route = props.route;
+    const themeContext = useTheme();
+    const theme = themeContext.theme;
+    const insets = useSafeAreaInsets();
+    var scrollBottomPadding = Platform.OS === 'web' ? WEB_TAB_MENU_PADDING : (TAB_MENU_HEIGHT + insets.bottom + SCROLL_EXTRA_PADDING);
+
+    var productId = route && route.params ? route.params.productId : null;
+    var product = productId ? PRODUCTS_BY_ID[productId] : { 
+      id: 'placeholder', name: 'منتج تقليدي', nameEn: 'Traditional Product',
+      seller: 'البائع', village: 'القرية', price: 100,
+      description: 'وصف المنتج سيظهر هنا'
+    };
+
+    const { mutate: addToCart } = useMutation('cartItems', 'insert');
+    const [quantity, setQuantity] = useState(1);
+    const [addingToCart, setAddingToCart] = useState(false);
+
+    const handleAddToCart = function() {
+      setAddingToCart(true);
+      addToCart({
+        productId: product.id,
+        productName: product.name,
+        productPrice: product.price,
+        quantity: quantity,
+        seller: product.seller,
+        village: product.village,
+        dateAdded: new Date().toISOString()
+      })
+      .then(function() {
+        setAddingToCart(false);
+        Platform.OS === 'web' ? window.alert('تمت إضافة المنتج إلى السلة') : Alert.alert('تم', 'تمت إضافة المنتج إلى السلة');
+      })
+      .catch(function(error) {
+        setAddingToCart(false);
+        Platform.OS === 'web' ? window.alert('حدث خطأ: ' + error.message) : Alert.alert('خطأ', error.message);
+      });
+    };
+
+    const increaseQuantity = function() {
+      setQuantity(function(prev) { return prev + 1; });
+    };
+
+    const decreaseQuantity = function() {
+      setQuantity(function(prev) { return Math.max(1, prev - 1); });
+    };
+
+    return React.createElement(View, { testID: 'View-19', style: { flex: 1, backgroundColor: theme.colors.background },
+      componentId: 'product-detail-screen'
+    },
+      React.createElement(View, { testID: 'View-20', style: [styles.header, { backgroundColor: theme.colors.primary }] },
+        React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-8', style: styles.backButton,
+          onPress: function() { navigation.goBack(); },
+          componentId: 'product-detail-back-button'
+        },
+          React.createElement(MaterialIcons, { testID: 'MaterialIcons-5', name: 'arrow-back', size: 24, color: '#FFFFFF' })
+        ),
+        React.createElement(Text, { testID: 'Text-20', style: styles.headerTitle }, 'تفاصيل المنتج')
+      ),
+      
+      React.createElement(ScrollView, { testID: 'ScrollView-5', style: { flex: 1 },
+        contentContainerStyle: { paddingBottom: scrollBottomPadding }
+      },
+        React.createElement(Image, { testID: 'Image-5', source: { uri: 'IMAGE:palestinian-traditional-handmade-products' },
+          style: styles.detailProductImage,
+          componentId: 'detail-product-image'
+        }),
+        
+        React.createElement(View, { testID: 'View-21', style: styles.productDetailInfo },
+          React.createElement(Text, { testID: 'Text-21', style: [styles.detailProductName, { color: theme.colors.textPrimary }] 
+          }, product.name),
+          
+          React.createElement(View, { testID: 'View-22', style: styles.sellerInfo },
+            React.createElement(MaterialIcons, { testID: 'MaterialIcons-6', name: 'person', 
+              size: 18, 
+              color: theme.colors.textSecondary 
+            }),
+            React.createElement(Text, { testID: 'Text-22', style: [styles.sellerText, { color: theme.colors.textSecondary }] 
+            }, product.seller)
+          ),
+          
+          React.createElement(View, { testID: 'View-23', style: styles.villageInfo },
+            React.createElement(MaterialIcons, { testID: 'MaterialIcons-7', name: 'location-on', 
+              size: 18, 
+              color: theme.colors.accent 
+            }),
+            React.createElement(Text, { testID: 'Text-23', style: [styles.villageText, { color: theme.colors.accent }] 
+            }, product.village)
+          ),
+          
+          React.createElement(Text, { testID: 'Text-24', style: [styles.detailProductPrice, { color: theme.colors.primary }] 
+          }, '$' + product.price),
+          
+          React.createElement(Text, { testID: 'Text-25', style: [styles.productDescription, { color: theme.colors.textPrimary }] 
+          }, product.description),
+
+          React.createElement(View, { testID: 'View-24', style: styles.quantitySection },
+            React.createElement(Text, { testID: 'Text-26', style: [styles.quantityLabel, { color: theme.colors.textPrimary }] 
+            }, 'الكمية:'),
+            React.createElement(View, { testID: 'View-25', style: styles.quantityControls },
+              React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-9', style: [styles.quantityButton, { backgroundColor: theme.colors.primary }],
+                onPress: decreaseQuantity,
+                componentId: 'decrease-quantity-button'
+              },
+                React.createElement(MaterialIcons, { testID: 'MaterialIcons-8', name: 'remove', size: 20, color: '#FFFFFF' })
+              ),
+              React.createElement(Text, { testID: 'Text-27', style: [styles.quantityText, { color: theme.colors.textPrimary }] 
+              }, String(quantity)),
+              React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-10', style: [styles.quantityButton, { backgroundColor: theme.colors.primary }],
+                onPress: increaseQuantity,
+                componentId: 'increase-quantity-button'
+              },
+                React.createElement(MaterialIcons, { testID: 'MaterialIcons-9', name: 'add', size: 20, color: '#FFFFFF' })
+              )
+            )
+          ),
+
+          React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-11', style: [styles.addToCartButton, { 
+              backgroundColor: addingToCart ? theme.colors.textSecondary : theme.colors.primary 
+            }],
+            onPress: addingToCart ? null : handleAddToCart,
+            disabled: addingToCart,
+            componentId: 'add-to-cart-button'
+          },
+            addingToCart ?
+              React.createElement(ActivityIndicator, { testID: 'ActivityIndicator-1', color: '#FFFFFF', size: 'small' }) :
+              React.createElement(View, { testID: 'View-26', style: styles.addToCartButtonContent },
+                React.createElement(MaterialIcons, { testID: 'MaterialIcons-10', name: 'shopping-cart', size: 20, color: '#FFFFFF' }),
+                React.createElement(Text, { testID: 'Text-28', style: styles.addToCartButtonText }, 'إضافة إلى السلة')
+              )
+          )
+        )
+      )
+    );
+  };
+  // @end:ProductDetailScreen
+
+  // @section:CartScreen @depends:[theme,styles]
+  const CartScreen = function(props) {
+    var navigation = props.navigation;
+    const themeContext = useTheme();
+    const theme = themeContext.theme;
+    const insets = useSafeAreaInsets();
+    var scrollBottomPadding = Platform.OS === 'web' ? WEB_TAB_MENU_PADDING : (TAB_MENU_HEIGHT + insets.bottom + SCROLL_EXTRA_PADDING);
+    var scrollTopPadding = insets.top;
+
+    const { data: cartItems, loading, refetch } = useQuery('cartItems');
+    const { mutate: updateCartItem } = useMutation('cartItems', 'update');
+    const { mutate: deleteCartItem } = useMutation('cartItems', 'delete');
+
+    const items = (cartItems && cartItems.length > 0) ? cartItems : [];
+    
+    const totalAmount = items.reduce(function(sum, item) {
+      return sum + (item.productPrice * item.quantity);
+    }, 0);
+
+    const handleUpdateQuantity = function(itemId, newQuantity) {
+      if (newQuantity < 1) {
+        handleRemoveItem(itemId);
+        return;
+      }
+      updateCartItem({ id: itemId, data: { quantity: newQuantity } })
+        .then(function() { refetch(); })
+        .catch(function(error) {
+          Platform.OS === 'web' ? window.alert('حدث خطأ: ' + error.message) : Alert.alert('خطأ', error.message);
+        });
+    };
+
+    const handleRemoveItem = function(itemId) {
+      deleteCartItem({ id: itemId })
+        .then(function() { refetch(); })
+        .catch(function(error) {
+          Platform.OS === 'web' ? window.alert('حدث خطأ: ' + error.message) : Alert.alert('خطأ', error.message);
+        });
+    };
+
+    const handleCheckout = function() {
+      if (items.length === 0) return;
+      Platform.OS === 'web' ? window.alert('سيتم إضافة عملية الدفع قريباً') : Alert.alert('قريباً', 'سيتم إضافة عملية الدفع قريباً');
+    };
+
+    if (loading) {
+      return React.createElement(View, { testID: 'View-27', style: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background } 
+      },
+        React.createElement(ActivityIndicator, { testID: 'ActivityIndicator-2', size: 'large', color: theme.colors.primary, componentId: 'cart-loading' })
+      );
+    }
+
+    return React.createElement(ScrollView, { testID: 'ScrollView-6', style: { flex: 1, backgroundColor: theme.colors.background },
+      contentContainerStyle: { paddingTop: scrollTopPadding, paddingBottom: scrollBottomPadding }
+    },
+      React.createElement(View, { testID: 'View-28', style: styles.cartHeader },
+        React.createElement(Text, { testID: 'Text-29', style: [styles.cartTitle, { color: theme.colors.textPrimary }] 
+        }, 'السلة'),
+        React.createElement(View, { testID: 'View-29', style: styles.tatreezBorder })
+      ),
+
+      items.length === 0 ?
+        React.createElement(View, { testID: 'View-30', style: styles.emptyCart },
+          React.createElement(MaterialIcons, { testID: 'MaterialIcons-11', name: 'shopping-cart-off', 
+            size: 64, 
+            color: theme.colors.textSecondary 
+          }),
+          React.createElement(Text, { testID: 'Text-30', style: [styles.emptyCartText, { color: theme.colors.textSecondary }] 
+          }, 'السلة فارغة')
+        ) :
+        React.createElement(View, { testID: 'View-31', style: styles.cartContent },
+          items.map(function(item) {
+            return React.createElement(View, { testID: 'View-32', key: item.id,
+              style: [styles.cartItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }],
+              componentId: 'cart-item-' + item.id
+            },
+              React.createElement(Image, { testID: 'Image-6', source: { uri: 'IMAGE:palestinian-cultural-products' },
+                style: styles.cartItemImage,
+                componentId: 'cart-item-image-' + item.id
+              }),
+              React.createElement(View, { testID: 'View-33', style: styles.cartItemInfo },
+                React.createElement(Text, { testID: 'Text-31', style: [styles.cartItemName, { color: theme.colors.textPrimary }] 
+                }, item.productName),
+                React.createElement(Text, { testID: 'Text-32', style: [styles.cartItemSeller, { color: theme.colors.textSecondary }] 
+                }, item.seller + ' - ' + item.village),
+                React.createElement(Text, { testID: 'Text-33', style: [styles.cartItemPrice, { color: theme.colors.primary }] 
+                }, '$' + item.productPrice + ' × ' + item.quantity)
+              ),
+              React.createElement(View, { testID: 'View-34', style: styles.cartItemActions },
+                React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-12', style: [styles.cartQuantityButton, { backgroundColor: theme.colors.primary }],
+                  onPress: function() { handleUpdateQuantity(item.id, item.quantity - 1); },
+                  componentId: 'cart-decrease-' + item.id
+                },
+                  React.createElement(MaterialIcons, { testID: 'MaterialIcons-12', name: 'remove', size: 18, color: '#FFFFFF' })
+                ),
+                React.createElement(Text, { testID: 'Text-34', style: [styles.cartQuantityText, { color: theme.colors.textPrimary }] 
+                }, String(item.quantity)),
+                React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-13', style: [styles.cartQuantityButton, { backgroundColor: theme.colors.primary }],
+                  onPress: function() { handleUpdateQuantity(item.id, item.quantity + 1); },
+                  componentId: 'cart-increase-' + item.id
+                },
+                  React.createElement(MaterialIcons, { testID: 'MaterialIcons-13', name: 'add', size: 18, color: '#FFFFFF' })
+                ),
+                React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-14', style: [styles.removeItemButton, { backgroundColor: theme.colors.error }],
+                  onPress: function() { handleRemoveItem(item.id); },
+                  componentId: 'cart-remove-' + item.id
+                },
+                  React.createElement(MaterialIcons, { testID: 'MaterialIcons-14', name: 'delete', size: 18, color: '#FFFFFF' })
+                )
+              )
+            );
+          }),
+
+          items.length > 0 && React.createElement(View, { testID: 'View-35', style: styles.cartSummary },
+            React.createElement(View, { testID: 'View-36', style: styles.tatreezBorder }),
+            React.createElement(Text, { testID: 'Text-35', style: [styles.totalAmount, { color: theme.colors.primary }] 
+            }, 'المجموع: $' + totalAmount.toFixed(2)),
+            React.createElement(TouchableOpacity, { testID: 'TouchableOpacity-15', style: [styles.checkoutButton, { backgroundColor: theme.colors.primary }],
+              onPress: handleCheckout,
+              componentId: 'checkout-button'
+            },
+              React.createElement(Text, { testID: 'Text-36', style: styles.checkoutButtonText }, 'إتمام الطلب')
+            )
+          )
+        )
+    );
+  };
+  // @end:CartScreen
+
+  // @section:TabNavigator @depends:[HomeScreen,CategoriesScreen,CartScreen,styles]
+  const TabNavigator = function() {
+    var insets = useSafeAreaInsets();
+    var themeContext = useTheme();
+    var theme = themeContext.theme;
+    
+    return React.createElement(View, { testID: 'View-37', style: { flex: 1, width: '100%', height: '100%', overflow: 'hidden' } },
+      React.createElement(Tab.Navigator, { testID: 'Navigator-1', screenOptions: {
+          headerShown: false,
+          tabBarStyle: { 
+            position: 'absolute', 
+            bottom: 0, 
+            height: TAB_MENU_HEIGHT + insets.bottom, 
+            borderTopWidth: 0, 
+            backgroundColor: theme.colors.card,
+            borderTopColor: theme.colors.primary,
+            borderTopWidth: 2
+          },
+          tabBarItemStyle: { padding: 0 },
+          tabBarActiveTintColor: theme.colors.primary,
+          tabBarInactiveTintColor: theme.colors.textSecondary,
+          tabBarLabelStyle: { fontSize: 12, fontWeight: 'bold' }
+        }
+      },
+        React.createElement(Tab.Screen, { testID: 'Screen-1', name: 'Home',
+          component: HomeScreen,
+          options: { 
+            tabBarLabel: 'الرئيسية',
+            tabBarIcon: function(props) { 
+              return React.createElement(MaterialIcons, { testID: 'MaterialIcons-15', name: 'home', size: 24, color: props.color }); 
+            } 
+          }
+        }),
+        React.createElement(Tab.Screen, { testID: 'Screen-2', name: 'Categories',
+          component: CategoriesScreen,
+          options: { 
+            tabBarLabel: 'الأقسام',
+            tabBarIcon: function(props) { 
+              return React.createElement(MaterialIcons, { testID: 'MaterialIcons-16', name: 'category', size: 24, color: props.color }); 
+            } 
+          }
+        }),
+        React.createElement(Tab.Screen, { testID: 'Screen-3', name: 'Search',
+          component: SearchScreen,
+          options: { 
+            tabBarLabel: 'البحث',
+            tabBarIcon: function(props) { 
+              return React.createElement(MaterialIcons, { testID: 'MaterialIcons-17', name: 'search', size: 24, color: props.color }); 
+            } 
+          }
+        }),
+        React.createElement(Tab.Screen, { testID: 'Screen-4', name: 'Cart',
+          component: CartScreen,
+          options: { 
+            tabBarLabel: 'السلة',
+            tabBarIcon: function(props) { 
+              return React.createElement(MaterialIcons, { testID: 'MaterialIcons-18', name: 'shopping-cart', size: 24, color: props.color }); 
+            } 
+          }
+        })
+      )
+    );
+  };
+  // @end:TabNavigator
+
+  // @section:StackNavigator @depends:[TabNavigator,ProductDetailScreen]
+  const StackNavigator = function() {
+    return React.createElement(Stack.Navigator, { testID: 'Navigator-2', screenOptions: { headerShown: false },
+      initialRouteName: 'MainApp'
+    },
+      React.createElement(Stack.Screen, { testID: 'Screen-5', name: 'MainApp', component: TabNavigator }),
+      React.createElement(Stack.Screen, { testID: 'Screen-6', name: 'ProductDetail', component: ProductDetailScreen })
+    );
+  };
+  // @end:StackNavigator
+
+  // @section:styles @depends:[constants]
+  const styles = StyleSheet.create({
+    heroSection: {
+      height: 280,
+      position: 'relative',
+      marginBottom: 20,
+    },
+    heroImage: {
+      width: '100%',
+      height: '100%',
+      resizeMode: 'cover',
+    },
+    heroOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(139, 21, 56, 0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    heroTitle: {
+      fontSize: 48,
+      fontWeight: 'bold',
+      color: '#FFFFFF',
+      textAlign: 'center',
+      marginBottom: 10,
+    },
+    heroSubtitle: {
+      fontSize: 18,
+      color: '#FFFFFF',
+      textAlign: 'center',
+      marginBottom: 20,
+    },
+    tatreezBorder: {
+      width: 120,
+      height: 4,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 2,
+    },
+    searchSection: {
+      paddingHorizontal: 20,
+      marginBottom: 30,
+    },
+    searchBar: {
+      flexDirection: 'row',
+      borderRadius: 25,
+      borderWidth: 2,
+      overflow: 'hidden',
+    },
+    searchInput: {
+      flex: 1,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      fontSize: 16,
+      textAlign: 'right',
+    },
+    searchButton: {
+      width: 50,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    categoriesSection: {
+      paddingHorizontal: 20,
+      marginBottom: 30,
+    },
+    sectionTitle: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      textAlign: 'right',
+      marginBottom: 15,
+    },
+    categoriesGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+    },
+    categoryCard: {
+      width: '48%',
+      borderRadius: 16,
+      borderWidth: 2,
+      padding: 20,
+      alignItems: 'center',
+      marginBottom: 15,
+    },
+    categoryName: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginTop: 10,
+    },
+    featuredSection: {
+      paddingLeft: 20,
+      marginBottom: 30,
+    },
+    productCard: {
+      width: 180,
+      borderRadius: 12,
+      borderWidth: 1,
+      marginRight: 15,
+      overflow: 'hidden',
+    },
+    productImage: {
+      width: '100%',
+      height: 120,
+      resizeMode: 'cover',
+    },
+    productInfo: {
+      padding: 12,
+    },
+    productName: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      textAlign: 'right',
+      marginBottom: 4,
+    },
+    productSeller: {
+      fontSize: 12,
+      textAlign: 'right',
+      marginBottom: 4,
+    },
+    productPrice: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      textAlign: 'right',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      paddingTop: 40,
+    },
+    backButton: {
+      marginRight: 16,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: '#FFFFFF',
+      textAlign: 'right',
+    },
+    productsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+    },
+    gridProductCard: {
+      width: '48%',
+      borderRadius: 12,
+      borderWidth: 1,
+      marginBottom: 15,
+      overflow: 'hidden',
+    },
+    gridProductImage: {
+      width: '100%',
+      height: 120,
+      resizeMode: 'cover',
+    },
+    gridProductInfo: {
+      padding: 12,
+    },
+    gridProductName: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      textAlign: 'right',
+      marginBottom: 4,
+    },
+    gridProductSeller: {
+      fontSize: 12,
+      textAlign: 'right',
+      marginBottom: 2,
+    },
+    gridProductVillage: {
+      fontSize: 12,
+      textAlign: 'right',
+      marginBottom: 4,
+    },
+    gridProductPrice: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      textAlign: 'right',
+    },
+    searchFilters: {
+      padding: 20,
+    },
+    filterInput: {
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
+      paddingHorizontal: 15,
+      paddingVertical: 12,
+      fontSize: 16,
+      textAlign: 'right',
+      marginBottom: 10,
+    },
+    resultsCount: {
+      fontSize: 14,
+      textAlign: 'right',
+      paddingHorizontal: 20,
+      marginBottom: 15,
+    },
+    detailProductImage: {
+      width: '100%',
+      height: 300,
+      resizeMode: 'cover',
+    },
+    productDetailInfo: {
+      padding: 20,
+    },
+    detailProductName: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      textAlign: 'right',
+      marginBottom: 15,
+    },
+    sellerInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      marginBottom: 8,
+    },
+    sellerText: {
+      fontSize: 16,
+      marginRight: 8,
+      textAlign: 'right',
+    },
+    villageInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      marginBottom: 15,
+    },
+    villageText: {
+      fontSize: 16,
+      marginRight: 8,
+      textAlign: 'right',
+    },
+    detailProductPrice: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      textAlign: 'right',
+      marginBottom: 15,
+    },
+    productDescription: {
+      fontSize: 16,
+      lineHeight: 24,
+      textAlign: 'right',
+      marginBottom: 25,
+    },
+    quantitySection: {
+      marginBottom: 25,
+    },
+    quantityLabel: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      textAlign: 'right',
+      marginBottom: 10,
+    },
+    quantityControls: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+    },
+    quantityButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    quantityText: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginHorizontal: 20,
+    },
+    addToCartButton: {
+      borderRadius: 25,
+      paddingVertical: 15,
+      paddingHorizontal: 30,
+      alignItems: 'center',
+    },
+    addToCartButtonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    addToCartButtonText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#FFFFFF',
+      marginLeft: 8,
+    },
+    cartHeader: {
+      padding: 20,
+      alignItems: 'center',
+    },
+    cartTitle: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: 15,
+    },
+    emptyCart: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 100,
+    },
+    emptyCartText: {
+      fontSize: 18,
+      textAlign: 'center',
+      marginTop: 20,
+    },
+    cartContent: {
+      padding: 20,
+    },
+    cartItem: {
+      flexDirection: 'row',
+      borderRadius: 12,
+      borderWidth: 1,
+      padding: 15,
+      marginBottom: 15,
+    },
+    cartItemImage: {
+      width: 80,
+      height: 80,
+      borderRadius: 8,
+      resizeMode: 'cover',
+    },
+    cartItemInfo: {
+      flex: 1,
+      paddingHorizontal: 15,
+      justifyContent: 'center',
+    },
+    cartItemName: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      textAlign: 'right',
+      marginBottom: 4,
+    },
+    cartItemSeller: {
+      fontSize: 14,
+      textAlign: 'right',
+      marginBottom: 4,
+    },
+    cartItemPrice: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      textAlign: 'right',
+    },
+    cartItemActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    cartQuantityButton: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    cartQuantityText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginHorizontal: 10,
+    },
+    removeItemButton: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginLeft: 10,
+    },
+    cartSummary: {
+      marginTop: 20,
+      padding: 20,
+      alignItems: 'center',
+    },
+    totalAmount: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginVertical: 15,
+    },
+    checkoutButton: {
+      borderRadius: 25,
+      paddingVertical: 15,
+      paddingHorizontal: 40,
+      marginTop: 15,
+    },
+    checkoutButtonText: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#FFFFFF',
+      textAlign: 'center',
+    },
+  });
+  // @end:styles
+
+  // @section:return @depends:[ThemeProvider,StackNavigator]
+  return React.createElement(ThemeProvider, { testID: 'ThemeProvider-1' },
+    React.createElement(View, { testID: 'View-38', style: { flex: 1, width: '100%', height: '100%' } },
+      React.createElement(StatusBar, { testID: 'StatusBar-1', barStyle: 'dark-content' }),
+      React.createElement(StackNavigator)
+    )
+  );
+  // @end:return
+};
+return ComponentFunction;
